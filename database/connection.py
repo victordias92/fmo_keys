@@ -3,11 +3,13 @@ from pathlib import Path
 import os
 
 # Diretório de dados do aplicativo
-data_dir = Path(os.getenv("APPDATA")) / "KeyManager"
+appdata = os.getenv("APPDATA") or os.getenv("HOME") or "/tmp"
+data_dir = Path(appdata) / "KeyManager"
+
+# cria pasta se não existir
 data_dir.mkdir(parents=True, exist_ok=True)
 
-# Arquivo do banco SQLite
-DB_PATH = data_dir / "keys.db"
+db_path = data_dir / "keys.db"
 
 
 def get_conn() -> sqlite3.Connection:
