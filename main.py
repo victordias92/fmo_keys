@@ -761,4 +761,5 @@ def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main, target=main, assets_dir="assets",)
+   port = int(os.getenv("PORT", 8080))
+   ft.run(target=main, port=port, view=ft.WEB_BROWSER)
