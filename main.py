@@ -333,7 +333,7 @@ def main(page: ft.Page) -> None:
 
         
         if row_key["last_user"].strip():
-            feedback.value = f"Esta chave já está sendo utilizada chave por {row_key["last_user"]}"
+            feedback.value = f"Esta chave já está sendo utilizada chave por {row_key['last_user']}"
             feedback.color = ft.Colors.RED_700
             return
         if key_id in row_key_name:
