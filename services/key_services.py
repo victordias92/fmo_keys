@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from database.key_repository import (
@@ -7,6 +8,7 @@ from database.key_repository import (
 
 from services.excel_service import append_usage, get_last_user_key
 
+logger = logging.getLogger(__name__)
 
 DAY_MAP = {
     "Monday": "Segunda-feira",
@@ -33,9 +35,11 @@ def register_use(key_id: int, user: str, used: bool):
     on_use = "Em uso"
     key = get_key_by_id(key_id)
     if used is True:
-        get_last_user_key(key_id, used_date, used_time, used_day)
+        try:
+            get_last_user_key(key_id, used_date, used_time, used_day)
+        except Exception:
+            logger.exception("Falha ao atualizar planilha Excel na devolucao")
         return
-
 
     update_key_use(
         key_id,
@@ -43,17 +47,16 @@ def register_use(key_id: int, user: str, used: bool):
         used_date,
         used_time,
         used_day,
-       
     )
 
-   
-
-    append_usage(
-        key["key_name"],
-        user,
-        used_date,
-        used_time,
-        used_day,
-        on_use
-        
-    )
+    try:
+        append_usage(
+            key["key_name"],
+            user,
+            used_date,
+            used_time,
+            used_day,
+            on_use,
+        )
+    except Exception:
+        logger.exception("Falha ao registrar uso na planilha Excel")

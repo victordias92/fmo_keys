@@ -1,18 +1,27 @@
-from ctypes import alignment
+import logging
 from pathlib import Path
-from unicodedata import digit
-from webbrowser import get
-
+from zipfile import BadZipFile
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from database.connection import data_dir
 
+logger = logging.getLogger(__name__)
+
+HEADERS = [
+    "Chave",
+    "Ultimo usuario",
+    "Data",
+    "Hora",
+    "Dia",
+    "Status",
+    "Data",
+    "Hora",
+    "dia",
+]
 
 fillgrey = PatternFill("solid", "DDDDDD")
-
-
-
 fillgreen = PatternFill("solid", fgColor="00FF00")
 thin_border = Border(
     left=Side(style="thin"),
@@ -23,9 +32,12 @@ thin_border = Border(
 font_devolvida = Font(bold=True, color="FFFFFF")
 
 
+def _excel_path() -> Path:
+    return data_dir / "chaves_exportadas.xlsx"
+
 
 def format_cell(cell, value, fill=None, font=None):
-    """Aplica valor e estilo padrão em uma célula."""
+    """Aplica valor e estilo padrao em uma celula."""
     cell.value = value
     cell.alignment = Alignment(horizontal="center", vertical="center")
     cell.border = thin_border
@@ -35,48 +47,72 @@ def format_cell(cell, value, fill=None, font=None):
         cell.font = font
 
 
+def _setup_headers(ws) -> None:
+    ws.append(HEADERS)
+    for col_letter, width in zip("ABCDEFGHI", [40, 25, 25, 25, 25, 25, 25, 25, 25]):
+        ws.column_dimensions[col_letter].width = width
 
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="4F81BD")
+    for col in range(1, len(HEADERS) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = thin_border
+
+
+def _create_workbook() -> tuple[Workbook, object]:
+    wb = Workbook()
+    ws = wb.active
+    _setup_headers(ws)
+    return wb, ws
+
+
+def _load_or_create_workbook(excel_file: Path) -> tuple[Workbook, object]:
+    if excel_file.exists():
+        try:
+            wb = load_workbook(excel_file)
+            return wb, wb.active
+        except (BadZipFile, KeyError, OSError, ValueError) as exc:
+            logger.warning(
+                "Arquivo Excel invalido (%s). Recriando: %s",
+                exc,
+                excel_file,
+            )
+            excel_file.unlink(missing_ok=True)
+
+    return _create_workbook()
 
 
 def marcar_devolucao(ws, row, used_date, used_time, used_day):
-    # coluna fixa para status
     format_cell(ws.cell(row=row, column=6), "devolvida", fill=fillgreen, font=font_devolvida)
-    # coluna fixa para data
     format_cell(ws.cell(row=row, column=7), used_date)
-    # coluna fixa para hora
-    format_cell(ws.cell(row=row, column=8), used_time)        
-    format_cell(ws.cell(row=row, column=9), used_day)        
+    format_cell(ws.cell(row=row, column=8), used_time)
+    format_cell(ws.cell(row=row, column=9), used_day)
 
-def get_last_user_key(keys: str,
+
+def get_last_user_key(
+    keys: str,
     used_date: str,
     used_time: str,
-    used_day: str,):
-    excel_file = Path("chaves_exportadas.xlsx")
-    keys = keys
-    
-    if excel_file.exists():
-        wb = load_workbook(excel_file)
-        ws = wb.active
+    used_day: str,
+):
+    excel_file = _excel_path()
+    if not excel_file.exists():
+        return
 
-        chave = ""
-        for row in range(2, ws.max_row + 1):
-                cell_value = str(ws.cell(row=row, column=1).value)
+    wb, ws = _load_or_create_workbook(excel_file)
 
-                # pega só os dígitos
-                chave = "".join([c for c in cell_value if c.isdigit()])
+    for row in range(2, ws.max_row + 1):
+        cell_value = str(ws.cell(row=row, column=1).value or "")
+        chave = "".join(c for c in cell_value if c.isdigit())
 
-                # pega só as letras
-                resto = "".join([c for c in cell_value if not c.isdigit()])
+        if chave == str(keys):
+            marcar_devolucao(ws, row, used_date, used_time, used_day)
 
-                print("Chave numérica:", chave)
-                print("Texto restante:", resto)
+    wb.save(excel_file)
 
-             
-                
-                if chave == str(keys):
-                            # última linha preenchida
-                   marcar_devolucao(ws, row, used_date, used_time, used_day)
-                wb.save(excel_file)
 
 def append_usage(
     key_name: str,
@@ -84,78 +120,19 @@ def append_usage(
     used_date: str,
     used_time: str,
     used_day: str,
-    on_use: str):
+    on_use: str,
+):
+    excel_file = _excel_path()
+    wb, ws = _load_or_create_workbook(excel_file)
 
-
-    excel_file = Path("chaves_exportadas.xlsx")
-
-    if excel_file.exists():
-        wb = load_workbook(excel_file)
-        ws = wb.active
-    else:
-        wb = Workbook()
-        ws = wb.active
-        headers = ["Chave", "Ultimo usuario", "Data", "Hora", "Dia", "Status", "Data", "Hora", "dia"]
-        ws.append(headers)
-        ws.column_dimensions["A"].width = 40
-        ws.column_dimensions["B"].width = 25
-        ws.column_dimensions["C"].width = 25
-        ws.column_dimensions["D"].width = 25
-        ws.column_dimensions["E"].width = 25
-        ws.column_dimensions["F"].width = 25
-        ws.column_dimensions["G"].width = 25
-        ws.column_dimensions["H"].width = 25
-        ws.column_dimensions["I"].width = 25
-       
-        # Estilo para cabeçalho
-        header_font = Font(bold=True, color="FFFFFF")  # texto branco e negrito
-        header_fill = PatternFill("solid", fgColor="4F81BD")  # fundo azul
-        thin_border = Border(
-            left=Side(style="thin"),
-            right=Side(style="thin"),
-            top=Side(style="thin"),
-            bottom=Side(style="thin"),
-        )
-
-        # Aplicar estilo em cada célula do cabeçalho
-        for col in range(1, len(headers) + 1):
-            cell = ws.cell(row=1, column=col)
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center", vertical="center")
-            cell.border = thin_border
-        
-        # Salvar arquivo
-       
-    
-        
-        
     dados = [key_name, user, used_date, used_time, used_day]
-    
-       
-    ws.append([
-        key_name,
-        user,
-        used_date,
-        used_time,
-        used_day,
-        on_use,
-       
-    ])
+    ws.append([key_name, user, used_date, used_time, used_day, on_use])
 
-# Pega a linha recém adicionada
-    for col in range(1, len(dados)+1):
-        
-        
+    for col in range(1, len(dados) + 1):
         cell = ws.cell(row=ws.max_row, column=col)
-        format_cell(cell, key_name, user)
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        
-        cell.font = Font(size="12")
-
+        format_cell(cell, dados[col - 1])
+        cell.font = Font(size=12)
         if ws.max_row % 2 == 0:
             cell.fill = fillgrey
-  
 
-    
     wb.save(excel_file)
