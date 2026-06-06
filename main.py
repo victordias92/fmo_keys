@@ -764,6 +764,10 @@ def main(page: ft.Page) -> None:
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
 
+    # Railway injeta PORT; força modo servidor web (sem abrir navegador local).
+    if os.environ.get("PORT"):
+        os.environ["FLET_FORCE_WEB_SERVER"] = "true"
+
     ft.app(
         target=main,
         port=port,
