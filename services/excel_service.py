@@ -3,7 +3,7 @@ from pathlib import Path
 from unicodedata import digit
 from webbrowser import get
 
-from fastapi.datastructures import Headers
+
 from openpyxl import Workbook, load_workbook
 
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
