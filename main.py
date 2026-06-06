@@ -768,9 +768,9 @@ if __name__ == "__main__":
     if is_production:
         os.environ["FLET_FORCE_WEB_SERVER"] = "true"
 
-    ft.app(
-        target=main,
+    ft.run(
+        main,
         port=port,
         host="0.0.0.0",
-        view=None if is_production else ft.AppView.WEB_BROWSER,
+        view=ft.AppView.WEB_BROWSER,
     )
