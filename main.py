@@ -763,14 +763,14 @@ def main(page: ft.Page) -> None:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
+    is_production = bool(os.environ.get("PORT"))
 
-    # Railway injeta PORT; força modo servidor web (sem abrir navegador local).
-    if os.environ.get("PORT"):
+    if is_production:
         os.environ["FLET_FORCE_WEB_SERVER"] = "true"
 
     ft.app(
         target=main,
         port=port,
         host="0.0.0.0",
-        view=ft.AppView.WEB_BROWSER
+        view=None if is_production else ft.AppView.WEB_BROWSER,
     )

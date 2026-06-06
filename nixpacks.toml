@@ -1,0 +1,6 @@
+[variables]
+GIN_MODE = "release"
+FLET_FORCE_WEB_SERVER = "true"
+
+[phases.setup]
+aptPkgs = ["...", "libgtk-3-0", "libgstreamer1.0-0"]
