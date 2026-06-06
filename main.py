@@ -646,6 +646,7 @@ def main(page: ft.Page) -> None:
         tooltip="Proxima pagina",
         on_click=on_next_page,
     )
+
     row_id = ''
     row_key_name = ''
     row_last_user = '',
@@ -761,4 +762,5 @@ def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.run(main, target=main, assets_dir="assets",)
+    port = int(os.environ.get("PORT", 8080))
+    ft.run(main, target=main, assets_dir="assets", port=port, host="0.0.0.0" )
