@@ -1,6 +1,8 @@
 import csv
+import logging
 import openpyxl
 import sqlite3
+import traceback
 from datetime import datetime
 from pathlib import Path
 import os
@@ -44,6 +46,18 @@ def close_modal(page: ft.Page) -> None:
     page.pop_dialog()
 
 def main(page: ft.Page) -> None:
+    try:
+        _build_app(page)
+    except Exception:
+        logging.exception("Falha ao iniciar o app")
+        page.add(
+            ft.Text("Erro ao carregar o app:", color=ft.Colors.RED_700, weight=ft.FontWeight.BOLD),
+            ft.Text(traceback.format_exc(), size=11, selectable=True),
+        )
+        page.update()
+
+
+def _build_app(page: ft.Page) -> None:
     init_db()
     seeded = seed_fmo_keys()
     page.title = "Claviculario FMO dev Victor F. Dias"
@@ -762,11 +776,14 @@ def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     port = int(os.environ.get("PORT", 8080))
     is_production = bool(os.environ.get("PORT"))
 
     if is_production:
         os.environ["FLET_FORCE_WEB_SERVER"] = "true"
+
+    logging.info("Iniciando Flet em 0.0.0.0:%s (producao=%s)", port, is_production)
 
     ft.run(
         main,

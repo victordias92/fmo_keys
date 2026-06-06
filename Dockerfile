@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# index.html em assets/ sobrescreve a UI do Flet e deixa a pagina em branco
+RUN rm -f assets/index.html assets/service-worker.js
+
 ENV FLET_FORCE_WEB_SERVER=true
 
 CMD ["python", "main.py"]
