@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-
+import pytz
 from database.key_repository import (
     update_key_use,
     get_key_by_id,
@@ -23,14 +23,15 @@ DAY_MAP = {
 
 def register_use(key_id: int, user: str, used: bool):
 
-    now = datetime.now()
-    horario_brasilia = now.astimezone(pytz.timezone('America/Sao_Paulo'))
-    used_date = horario_brasilia.strftime("%d/%m/%Y")
-    used_time = horario_brasilia.strftime("%H:%M")
+    now = datetime.utcnow()
+    now = now.replace(tzinfo=pytz.timezone('UTC'))
+    now = now.astimezone(pytz.timezone('America/Sao_Paulo'))
+    used_date = now.strftime("%d/%m/%Y")
+    used_time = now.strftime("%H:%M")
 
     used_day = DAY_MAP.get(
-        horario_brasilia.strftime("%A"),
-        horario_brasilia.strftime("%A"),
+        now.strftime("%A"),
+        now.strftime("%A"),
     )
     on_use = "Em uso"
     key = get_key_by_id(key_id)
