@@ -36,6 +36,23 @@ db_path = data_dir / "keys.db"
 
 
 color_bg = ft.Colors.BLUE_50
+MOBILE_BREAKPOINT = 768
+
+
+def _page_width(page: ft.Page) -> float:
+    if page.width:
+        return page.width
+    if page.window and page.window.width:
+        return page.window.width
+    return 980
+
+
+def _is_mobile(page: ft.Page) -> bool:
+    return _page_width(page) < MOBILE_BREAKPOINT
+
+
+def _field_label_style(mobile: bool) -> ft.TextStyle:
+    return ft.TextStyle(size=11 if mobile else 13)
 
 
 def show_modal(page: ft.Page, dialog: ft.AlertDialog) -> None:
@@ -60,9 +77,10 @@ def main(page: ft.Page) -> None:
 def _build_app(page: ft.Page) -> None:
     init_db()
     seeded = seed_fmo_keys()
+    mobile = _is_mobile(page)
     page.title = "Claviculario FMO dev Victor F. Dias"
     page.theme_mode = ft.ThemeMode.LIGHT
-    page.padding = 15
+    page.padding = 8 if mobile else 15
     page.window_width = 980
     page.window_height = 680
     page.scroll = ft.ScrollMode.AUTO
@@ -71,48 +89,51 @@ def _build_app(page: ft.Page) -> None:
     else:
         color_bg = ft.Colors.BLUE_50
 
-    title = ft.Row(
-        controls=[
-            ft.Icon(ft.Icons.KEY, size=32, color=ft.Colors.BLUE_700),
-            ft.Text("Claviculario FMO", size=28, weight=ft.FontWeight.BOLD),
-        ]
+    title_icon = ft.Icon(ft.Icons.KEY, size=24 if mobile else 32, color=ft.Colors.BLUE_700)
+    title_text = ft.Text(
+        "Claviculario FMO",
+        size=20 if mobile else 28,
+        weight=ft.FontWeight.BOLD,
     )
+    title = ft.Row(controls=[title_icon, title_text], spacing=8)
 
-    key_input = ft.TextField(
+    def _configure_field(field: ft.TextField) -> ft.TextField:
+        field.dense = True
+        field.text_size = 13 if mobile else 15
+        field.label_style = _field_label_style(mobile)
+        field.expand = True
+        return field
+
+    key_input = _configure_field(ft.TextField(
         label="Chave extra (opcional)",
         hint_text="Somente se nao estiver no claviculario",
         prefix_icon=ft.Icons.KEY_OUTLINED,
-        expand=True,
-        dense=True,
-    )
+    ))
     admin_user = ft.TextField(
         label= 'user', hint_text="administrador",
         prefix_icon=ft.Icons.PERSON_OUTLINED, 
         password=True,
         )
 
-    user_input = ft.TextField(
+    user_input = _configure_field(ft.TextField(
         label="Ultimo a utilizar",
         hint_text="Nome da pessoa",
         prefix_icon=ft.Icons.PERSON_OUTLINED,
-        expand=True,
-        on_change=lambda e: refresh_table(reset_page=True)
-    )
+        on_change=lambda e: refresh_table(reset_page=True),
+    ))
 
-    search_input = ft.TextField(
+    search_input = _configure_field(ft.TextField(
         label="Buscar chave",
-        hint_text="Digite para filtrar por nome da chave",
+        hint_text="Filtrar por nome da chave",
         prefix_icon=ft.Icons.SEARCH,
-        expand=True,
         on_change=lambda e: refresh_table(reset_page=True),
-    )
-    user_filter_input = ft.TextField(
-        label="Filtrar por ultimo usuario",
-        hint_text="Digite o nome para filtrar",
+    ))
+    user_filter_input = _configure_field(ft.TextField(
+        label="Filtrar por usuario",
+        hint_text="Nome do ultimo usuario",
         prefix_icon=ft.Icons.PERSON_SEARCH,
-        expand=True,
         on_change=lambda e: refresh_table(reset_page=True),
-    )
+    ))
     day_filter_dropdown = ft.Dropdown(
         label="Filtrar por dia",
         hint_text="Selecione o dia da semana",
@@ -127,7 +148,9 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("Domingo"),
         ],
         value="",
-        width=230,
+        expand=True,
+        text_size=13 if mobile else 15,
+        label_style=_field_label_style(mobile),
     )
     sort_by_dropdown = ft.Dropdown(
         label="Ordenar por",
@@ -137,7 +160,9 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("used_datetime", "Data/Hora de uso"),
         ],
         value="key_name",
-        width=215,
+        expand=True,
+        text_size=13 if mobile else 15,
+        label_style=_field_label_style(mobile),
     )
     sort_order_dropdown = ft.Dropdown(
         label="Ordem",
@@ -146,7 +171,9 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("desc", "Decrescente"),
         ],
         value="asc",
-        width=170,
+        expand=True,
+        text_size=13 if mobile else 15,
+        label_style=_field_label_style(mobile),
     )
     page_size_dropdown = ft.Dropdown(
         label="Itens por pagina",
@@ -156,37 +183,53 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("50"),
         ],
         value="10",
-        width=180,
+        expand=True,
+        text_size=13 if mobile else 15,
+        label_style=_field_label_style(mobile),
     )
     current_page = 1
-    page_info_text = ft.Text("Pagina 1/1", weight=ft.FontWeight.W_600)
+    page_info_text = ft.Text("Pagina 1/1", size=12 if mobile else 14, weight=ft.FontWeight.W_600)
 
-    total_keys_text = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
-    used_keys_text = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
-    available_keys_text = ft.Text("0", size=26, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700)
+    stat_size = 18 if mobile else 26
+    total_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
+    used_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
+    available_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700)
+    layout_mobile = mobile
     recent_activity_column = ft.Column(spacing=6)
 
+    def _table_columns(compact: bool) -> list[ft.DataColumn]:
+        label_size = 11 if compact else 13
+        icon_size = 14 if compact else 18
+
+        def col(icon, label: str) -> ft.DataColumn:
+            return ft.DataColumn(
+                ft.Row(
+                    [ft.Icon(icon, size=icon_size), ft.Text(label, size=label_size, weight=ft.FontWeight.BOLD)],
+                    spacing=4,
+                )
+            )
+
+        return [
+            col(ft.Icons.KEY, "Chave"),
+            col(ft.Icons.PERSON, "Ultimo"),
+            col(ft.Icons.CALENDAR_MONTH, "Data"),
+            col(ft.Icons.ACCESS_TIME, "Hora"),
+            col(ft.Icons.TODAY, "Dia"),
+            col(ft.Icons.ADD, "Acao"),
+        ]
+
     table = ft.DataTable(
-        columns=[
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.KEY), ft.Text("Chave", weight=ft.FontWeight.BOLD)])),
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.PERSON), ft.Text("Ultimo")])),
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.CALENDAR_MONTH), ft.Text("Data")])),
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.ACCESS_TIME), ft.Text("Hora")])),
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.TODAY), ft.Text("Dia")])),
-            ft.DataColumn(ft.Row([ft.Icon(ft.Icons.ADD), ft.Text("Ação")]))
-          
-        ],
+        columns=_table_columns(mobile),
         rows=[],
         heading_row_color=color_bg,
-        expand=True,
-        column_spacing=15,
-        width=1150,
-    
-
-        
+        column_spacing=8 if mobile else 15,
+        data_row_min_height=40 if mobile else 48,
+        heading_row_height=36 if mobile else 48,
+        width=900 if mobile else 1150,
     )
+    table_scroll = ft.Row([table], scroll=ft.ScrollMode.ALWAYS, expand=True)
 
-    feedback = ft.Text("", color=ft.Colors.GREEN_700, size=14)
+    feedback = ft.Text("", color=ft.Colors.GREEN_700, size=12 if mobile else 14)
 
     def get_sort_value(row: sqlite3.Row, sort_by: str) -> str:
         if sort_by == "last_user":
@@ -240,33 +283,37 @@ def _build_app(page: ft.Page) -> None:
         end_index = start_index + page_size
         paginated_rows = filtered_rows[start_index:end_index]
 
+        cell_size = 11 if layout_mobile else 13
+
+        def _action_button(text: str, icon, on_click):
+            if layout_mobile:
+                return ft.IconButton(icon=icon, tooltip=text, on_click=on_click, icon_size=18)
+            return ft.TextButton(text, icon=icon, on_click=on_click)
+
         for row in paginated_rows:
             row_id = int(row["id"])
             row_key_name = str(row["key_name"] or "")
             row_last_user = str(row["last_user"] or "")
             has_use = bool(row_last_user.strip())
             action_buttons = [
-               
-                ft.TextButton(
+                _action_button(
                     "Editar",
-                    icon=ft.Icons.EDIT_NOTE,
-                    on_click=lambda e, key_id=row_id, key_name=row_key_name: on_edit_key(key_id, key_name),
+                    ft.Icons.EDIT_NOTE,
+                    lambda e, key_id=row_id, key_name=row_key_name: on_edit_key(key_id, key_name),
                 ),
-                ft.TextButton(
+                _action_button(
                     "Excluir",
-                    icon=ft.Icons.DELETE_OUTLINE,
-                    visible=True,
-                
-                    on_click=lambda e, key_id=row_id, key_name=row_key_name: on_delete_key(key_id, key_name),
-                )
+                    ft.Icons.DELETE_OUTLINE,
+                    lambda e, key_id=row_id, key_name=row_key_name: on_delete_key(key_id, key_name),
+                ),
             ]
             if has_use:
                 action_buttons.insert(
                     1,
-                    ft.TextButton(
+                    _action_button(
                         "Remover uso",
-                        icon=ft.Icons.PERSON_REMOVE,
-                        on_click=lambda e, key_id=row_id, key_name=row_key_name, last_user=row_last_user: on_clear_use(
+                        ft.Icons.PERSON_REMOVE,
+                        lambda e, key_id=row_id, key_name=row_key_name, last_user=row_last_user: on_clear_use(
                             key_id, key_name, last_user
                         ),
                     ),
@@ -274,12 +321,12 @@ def _build_app(page: ft.Page) -> None:
             table.rows.append(
                 ft.DataRow(
                     cells=[
-                        ft.DataCell(ft.Text(row["key_name"] or "-")),
-                        ft.DataCell(ft.Text(row["last_user"] or "-")),
-                        ft.DataCell(ft.Text(row["used_date"] or "-")),
-                        ft.DataCell(ft.Text(row["used_time"] or "-")),
-                        ft.DataCell(ft.Text(row["used_day"] or "-" )),
-                        ft.DataCell(ft.Row(action_buttons, wrap=False)),
+                        ft.DataCell(ft.Text(row["key_name"] or "-", size=cell_size)),
+                        ft.DataCell(ft.Text(row["last_user"] or "-", size=cell_size)),
+                        ft.DataCell(ft.Text(row["used_date"] or "-", size=cell_size)),
+                        ft.DataCell(ft.Text(row["used_time"] or "-", size=cell_size)),
+                        ft.DataCell(ft.Text(row["used_day"] or "-", size=cell_size)),
+                        ft.DataCell(ft.Row(action_buttons, wrap=False, spacing=0)),
                     ]
                 )
             )
@@ -292,9 +339,16 @@ def _build_app(page: ft.Page) -> None:
         used_keys_text.value = str(used_keys)
         available_keys_text.value = str(available_keys)
 
+        activity_size = 10 if layout_mobile else 12
         recent_activity_column.controls.clear()
         recent_activity_column.controls.append(
-            ft.Row([ft.Icon(ft.Icons.HISTORY), ft.Text("Ultimas movimentacoes", weight=ft.FontWeight.W_600)])
+            ft.Row(
+                [
+                    ft.Icon(ft.Icons.HISTORY, size=16 if layout_mobile else 20),
+                    ft.Text("Ultimas movimentacoes", size=activity_size + 1, weight=ft.FontWeight.W_600),
+                ],
+                spacing=6,
+            )
         )
         recent_used = [r for r in rows if (r["used_date"] or "").strip() and (r["used_time"] or "").strip()]
         recent_used.sort(
@@ -306,12 +360,13 @@ def _build_app(page: ft.Page) -> None:
                 recent_activity_column.controls.append(
                     ft.Text(
                         f'{item["key_name"]} - {item["last_user"] or "-"} - {item["used_date"]} {item["used_time"]} ({item["used_day"] or "-"})',
-                        size=12,
-                       
+                        size=activity_size,
                     )
                 )
         else:
-            recent_activity_column.controls.append(ft.Text("Nenhuma movimentacao registrada.", size=12))
+            recent_activity_column.controls.append(
+                ft.Text("Nenhuma movimentacao registrada.", size=activity_size)
+            )
 
         if search_term or user_term or day_term:
             feedback.value = f"Exibindo {len(filtered_rows)} chave(s) apos filtros."
@@ -663,104 +718,147 @@ def _build_app(page: ft.Page) -> None:
 
     row_id = ''
     row_key_name = ''
-    row_last_user = '',
+    row_last_user = ''
+
+    def _stat_card(icon, label: str, value_text: ft.Text, bgcolor) -> ft.Container:
+        label_size = 11 if layout_mobile else 13
+        return ft.Container(
+            content=ft.Row(
+                [
+                    ft.Icon(icon, size=16 if layout_mobile else 20),
+                    ft.Text(label, size=label_size),
+                    value_text,
+                ],
+                spacing=4,
+                alignment=ft.MainAxisAlignment.START,
+            ),
+            padding=10 if layout_mobile else 12,
+            border_radius=10,
+            bgcolor=bgcolor,
+            expand=layout_mobile,
+        )
+
+    stat_total = _stat_card(ft.Icons.KEY, "Chaves", total_keys_text, ft.Colors.BLUE_50)
+    stat_used = _stat_card(ft.Icons.CHECK_CIRCLE, "Usadas", used_keys_text, ft.Colors.GREEN_50)
+    stat_available = _stat_card(ft.Icons.LOCK_OPEN, "Sem uso", available_keys_text, ft.Colors.ORANGE_50)
+    stat_containers = [stat_total, stat_used, stat_available]
+
+    dev_banner = ft.Container(
+        content=ft.Row(
+            [
+                ft.Icon(ft.Icons.PERSON, color=ft.Colors.BLUE, size=16 if layout_mobile else 20),
+                ft.Text("Desenvolvido por AAS Dias", size=11 if layout_mobile else 13),
+            ],
+            spacing=8,
+            alignment=ft.MainAxisAlignment.START,
+        ),
+        padding=8 if layout_mobile else 10,
+        border_radius=8,
+        bgcolor=ft.Colors.BLUE_50,
+    )
+
+    inputs_row = ft.ResponsiveRow(
+        [
+            ft.Container(user_input, col={"xs": 12, "md": 4}),
+            ft.Container(search_input, col={"xs": 12, "md": 4}),
+            ft.Container(user_filter_input, col={"xs": 12, "md": 4}),
+        ],
+        run_spacing=10,
+    )
+    footer_row = ft.ResponsiveRow(
+        [
+            ft.Container(key_input, col={"xs": 12, "md": 8}),
+            ft.Container(add_key_button, col={"xs": 12, "md": 4}),
+        ],
+        run_spacing=10,
+    )
+
     content = ft.Column(
         controls=[
             title,
-            ft.Container(
-                     content=ft.Row( [ ft.Icon(ft.Icons.PERSON, color=ft.Colors.BLUE),  ft.Text("Desenvolvido por AAS Dias"),
-                            ],
-                            spacing=8,  # espaço entre ícone e texto
-                            alignment=ft.MainAxisAlignment.START,
-                        ),
-                        padding=10,
-                        border_radius=8,
-                        bgcolor=ft.Colors.BLUE_50,
-                        ),
-
+            dev_banner,
             ft.Divider(),
-            ft.Row(
-                [
-                    ft.Container(
-                        content=ft.Row(
-                            [
-                                ft.Row([ft.Icon(ft.Icons.KEY), ft.Text("Chaves ")]),
-                                total_keys_text,
-                            ],
-                            spacing=4,
-                             alignment=ft.MainAxisAlignment.START,
-                        ),
-                        padding=12,
-                        border_radius=10,
-                        bgcolor=ft.Colors.BLUE_50,
-                        width=150,
-                       
-                    ),
-                    ft.Container(
-                        content=ft.Row(
-                            [
-                                ft.Row([ft.Icon(ft.Icons.CHECK_CIRCLE), ft.Text("Usadas ")]),
-                                used_keys_text,
-                            ],
-                            spacing=4,
-                        ),
-                        padding=12,
-                        border_radius=10,
-                        bgcolor=ft.Colors.GREEN_50,
-                        width=150,
-                    ),
-                    ft.Container(
-                        content=ft.Row(
-                            [
-                                ft.Row([ft.Icon(ft.Icons.LOCK_OPEN), ft.Text("Sem uso ")]),
-                                available_keys_text,
-                            ],
-                            spacing=4,
-                        ),
-                        padding=12,
-                        border_radius=10,
-                        bgcolor=ft.Colors.ORANGE_50,
-                        width=150,
-                    ),
-                ],
-                wrap=True,
-                spacing=10,
+            ft.ResponsiveRow(
+                [ft.Container(c, col={"xs": 12, "sm": 4}) for c in stat_containers],
+                spacing=8,
+                run_spacing=8,
             ),
             ft.Container(
                 content=recent_activity_column,
-                padding=12,
+                padding=10 if layout_mobile else 12,
                 border_radius=10,
                 bgcolor=ft.Colors.BLUE_GREY_50,
             ),
-             
-           
-            ft.Row(controls=[user_input, search_input, user_filter_input,], alignment=ft.MainAxisAlignment.START),
+            inputs_row,
             ft.FilledButton(
-                    "Registrar",
-                    icon=ft.Icons.HOW_TO_REG,
-                    on_click=lambda e, key_id=search_input.value, user=user_input.value: on_register_use(search_input.value, user_input.value),
-                ),
+                "Registrar",
+                icon=ft.Icons.HOW_TO_REG,
+                on_click=lambda e, key_id=search_input.value, user=user_input.value: on_register_use(search_input.value, user_input.value),
+            ),
             feedback,
             ft.Row(
                 [prev_page_button, page_info_text, next_page_button],
                 alignment=ft.MainAxisAlignment.START,
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                wrap=True,
             ),
             ft.Container(
-                content=table,
-                padding=10,
+                content=table_scroll,
+                padding=8 if layout_mobile else 10,
                 border_radius=10,
                 bgcolor=ft.Colors.WHITE,
             ),
             ft.Divider(height=1, color=ft.Colors.BLUE_GREY_100),
-            ft.Row(
-                [key_input, add_key_button],
-                alignment=ft.MainAxisAlignment.START,
-                vertical_alignment=ft.CrossAxisAlignment.END,
-            ),
+            footer_row,
         ],
-        spacing=14,
+        spacing=10 if layout_mobile else 14,
+        expand=True,
     )
+
+    def apply_responsive_layout(_=None) -> None:
+        nonlocal layout_mobile
+        layout_mobile = _is_mobile(page)
+        page.padding = 8 if layout_mobile else 15
+
+        title_icon.size = 24 if layout_mobile else 32
+        title_text.size = 20 if layout_mobile else 28
+        dev_banner.padding = 8 if layout_mobile else 10
+
+        stat_size = 18 if layout_mobile else 26
+        for stat_value in (total_keys_text, used_keys_text, available_keys_text):
+            stat_value.size = stat_size
+        for stat_card in stat_containers:
+            stat_card.expand = layout_mobile
+            stat_card.padding = 10 if layout_mobile else 12
+
+        field_size = 13 if layout_mobile else 15
+        label_style = _field_label_style(layout_mobile)
+        for field in (key_input, user_input, search_input, user_filter_input):
+            field.text_size = field_size
+            field.label_style = label_style
+        for dropdown in (
+            day_filter_dropdown,
+            sort_by_dropdown,
+            sort_order_dropdown,
+            page_size_dropdown,
+        ):
+            dropdown.text_size = field_size
+            dropdown.label_style = label_style
+
+        table.columns = _table_columns(layout_mobile)
+        table.column_spacing = 8 if layout_mobile else 15
+        table.data_row_min_height = 40 if layout_mobile else 48
+        table.heading_row_height = 36 if layout_mobile else 48
+        table.width = 900 if layout_mobile else 1150
+
+        page_info_text.size = 12 if layout_mobile else 14
+        feedback.size = 12 if layout_mobile else 14
+        content.spacing = 10 if layout_mobile else 14
+
+        refresh_table()
+        page.update()
+
+    page.on_resized = apply_responsive_layout
     
     def confirm_clear(e: ft.ControlEvent) -> None:
             clear_key_use(key_id)
@@ -768,7 +866,8 @@ def _build_app(page: ft.Page) -> None:
             feedback.color = ft.Colors.GREEN_700
             close_modal(page)
             refresh_table()
-    page.add(content)
+    page.add(ft.SafeArea(expand=True, content=content))
+    apply_responsive_layout()
     if seeded:
         feedback.value = f"{seeded} chave(s) do claviculario FMO carregada(s)."
         feedback.color = ft.Colors.GREEN_700
