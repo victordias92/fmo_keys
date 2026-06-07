@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
-import pytz
+
+from zoneinfo import ZoneInfo
 from database.key_repository import (
     update_key_use,
     get_key_by_id,
@@ -23,10 +24,10 @@ DAY_MAP = {
 
 def register_use(key_id: int, user: str, used: bool):
 
-    now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    now = datetime.now(ZoneInfo('UTC'))
 
     # Converte para horário de Brasília
-    horario_brasilia = now.astimezone(pytz.timezone('America/Sao_Paulo'))
+    horario_brasilia = now.astimezone(ZoneInfo('America/Sao_Paulo'))
 
     used_date = horario_brasilia.strftime("%d/%m/%Y")
     used_time = horario_brasilia.strftime("%H:%M")
