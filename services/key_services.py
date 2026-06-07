@@ -23,11 +23,14 @@ DAY_MAP = {
 
 def register_use(key_id: int, user: str, used: bool):
 
-    now = datetime.utcnow()
-    now = now.replace(tzinfo=pytz.timezone('UTC'))
-    now = now.astimezone(pytz.timezone('America/Sao_Paulo'))
-    used_date = now.strftime("%d/%m/%Y")
-    used_time = now.strftime("%H:%M")
+    now = datetime.utcnow().replace(tzinfo=pytz.utc)
+
+    # Converte para horário de Brasília
+    horario_brasilia = now.astimezone(pytz.timezone('America/Sao_Paulo'))
+
+    used_date = horario_brasilia.strftime("%d/%m/%Y")
+    used_time = horario_brasilia.strftime("%H:%M")
+    used_day = horario_brasilia.strftime("%A")
 
     used_day = DAY_MAP.get(
         now.strftime("%A"),
