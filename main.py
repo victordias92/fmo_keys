@@ -398,7 +398,7 @@ def _build_app(page: ft.Page) -> None:
         elif feedback.value.startswith("Exibindo "):
             feedback.value = ""
         page.update()
-    def export_excel(e: ft.ControlEvent | None = None) -> None:
+    async def export_excel(e: ft.ControlEvent | None = None) -> None:
         download_url = "/download_excel"
         # #region agent log
         _debug_log(
@@ -409,7 +409,7 @@ def _build_app(page: ft.Page) -> None:
                 "download_url": download_url,
                 "port_env": os.environ.get("PORT"),
                 "is_production": bool(os.environ.get("PORT")),
-                "runId": "post-fix",
+                "runId": "post-fix-v2",
             },
         )
         # #endregion
@@ -423,11 +423,22 @@ def _build_app(page: ft.Page) -> None:
                 {
                     "excel_path": str(export_path),
                     "download_url": download_url,
-                    "runId": "post-fix",
+                    "runId": "post-fix-v2",
                 },
             )
             # #endregion
-            page.launch_url(download_url)
+            await page.launch_url(
+                download_url,
+                web_popup_window_name=ft.UrlTarget.SELF,
+            )
+            # #region agent log
+            _debug_log(
+                "H6",
+                "main.py:export_excel:launch_done",
+                "launch_url awaited successfully",
+                {"download_url": download_url, "runId": "post-fix-v2"},
+            )
+            # #endregion
             feedback.value = "Download do Excel iniciado."
             feedback.color = ft.Colors.GREEN_700
         except Exception as exc:
@@ -439,7 +450,7 @@ def _build_app(page: ft.Page) -> None:
                 {
                     "error_type": type(exc).__name__,
                     "error": str(exc),
-                    "runId": "post-fix",
+                    "runId": "post-fix-v2",
                 },
             )
             # #endregion
@@ -869,7 +880,7 @@ def _build_app(page: ft.Page) -> None:
             ft.FilledButton(
                 "Exportar  excel",
                 icon=ft.Icons.DOWNLOAD,
-                on_click=lambda e: export_excel()
+                on_click=export_excel,
             ),
             feedback,
             ft.Row(
@@ -946,11 +957,12 @@ def _build_app(page: ft.Page) -> None:
 def create_web_app():
     import flet_web.fastapi as flet_fastapi
     from fastapi.responses import FileResponse
+    from starlette.requests import Request
 
     web_app = flet_fastapi.FastAPI()
 
     @web_app.get("/download_excel")
-    def download_excel_route():
+    def download_excel_route(request: Request):
         excel_file = excel_download()
         # #region agent log
         _debug_log(
@@ -960,7 +972,8 @@ def create_web_app():
             {
                 "excel_path": str(excel_file),
                 "exists": excel_file.exists(),
-                "runId": "post-fix",
+                "client_host": request.client.host if request.client else None,
+                "runId": "post-fix-v2",
             },
         )
         # #endregion
