@@ -1,5 +1,5 @@
 from pathlib import Path
-
+import os
 from openpyxl import Workbook
 from flask import Flask, send_file
 
@@ -41,8 +41,9 @@ app = Flask(__name__)
 @app.route('/download')
 def download_file():
     # Caminho para o arquivo no seu servidor
-    caminho_arquivo = "pasta_arquivos/relatorio.pdf"
-    
+    caminho_arquivo = "chaves_exportadas.xlsx"
+    if not os.path.exists(caminho_arquivo):
+        return "Arquivo não encontrado"
     return send_file(
         caminho_arquivo, 
         as_attachment=True,         # Força o navegador a baixar em vez de abrir
