@@ -1,7 +1,7 @@
 flet[web]>=0.28.0
 openpyxl
 uvicorn[standard]>=0.30.0
-
+flask
 gunicorn[standard]>=23.0.0
 watchfiles>=0.20.0
 httpx>=0.28.0
