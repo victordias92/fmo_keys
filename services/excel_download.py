@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from openpyxl import Workbook
+from flask import Flask, send_file
 
 from database.connection import data_dir
 from database.key_repository import list_keys
@@ -33,4 +34,21 @@ def excel_download() -> Path:
         )
 
     wb.save(excel_file)
+    download_file()
+
+app = Flask(__name__)
+
+@app.route('/download')
+def download_file():
+    # Caminho para o arquivo no seu servidor
+    caminho_arquivo = "pasta_arquivos/relatorio.pdf"
+    
+    return send_file(
+        caminho_arquivo, 
+        as_attachment=True,         # Força o navegador a baixar em vez de abrir
+        download_name='relatorio.pdf' # Nome que o usuário verá ao salvar
+    )
+
+if __name__ == '__main__':
+    app.run(debug=True)
     return excel_file
