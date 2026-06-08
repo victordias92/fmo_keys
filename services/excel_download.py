@@ -36,7 +36,11 @@ def excel_download() -> Path:
 def download_excel():
     """Rota Flask para gerar e enviar o arquivo Excel."""
     excel_file = excel_download()
-    return send_file(excel_file, as_attachment=True)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    if not excel_file.exists():
+        return "Arquivo não encontrado", 404    
+    return send_file(
+        excel_file,
+        as_attachment=True,
+        download_name=EXCEL_FILENAME,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
