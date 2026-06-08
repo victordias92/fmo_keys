@@ -1,20 +1,10 @@
 from pathlib import Path
 
-from openpyxl import Workbook
+from services.excel_service import EXCEL_FILENAME, ensure_export_workbook
 
-from database.connection import data_dir
-from database.key_repository import list_keys
-
-EXCEL_FILENAME = "chaves_exportadas.xlsx"
-
-
-def _excel_path() -> Path:
-    return data_dir / EXCEL_FILENAME
+__all__ = ["EXCEL_FILENAME", "excel_download"]
 
 
 def excel_download() -> Path:
-    """Exporta as chaves do banco para um arquivo Excel e retorna o caminho."""
-    excel_file = _excel_path()
-   
-    # #endregion
-    return excel_file
+    """Retorna o historico formatado de usos mantido pelo excel_service."""
+    return ensure_export_workbook()

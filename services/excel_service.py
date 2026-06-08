@@ -9,6 +9,8 @@ from database.connection import data_dir
 
 logger = logging.getLogger(__name__)
 
+EXCEL_FILENAME = "chaves_exportadas.xlsx"
+
 HEADERS = [
     "Chave",
     "Ultimo usuario",
@@ -33,7 +35,7 @@ font_devolvida = Font(bold=True, color="FFFFFF")
 
 
 def _excel_path() -> Path:
-    return data_dir / "chaves_exportadas.xlsx"
+    return data_dir / EXCEL_FILENAME
 
 
 def format_cell(cell, value, fill=None, font=None):
@@ -83,6 +85,22 @@ def _load_or_create_workbook(excel_file: Path) -> tuple[Workbook, object]:
             excel_file.unlink(missing_ok=True)
 
     return _create_workbook()
+
+
+def ensure_export_workbook() -> Path:
+    """Garante que o historico formatado existe e retorna o caminho para download."""
+    excel_file = _excel_path()
+    wb, ws = _load_or_create_workbook(excel_file)
+    if ws.max_row >= 1:
+        current_headers = [ws.cell(1, col).value for col in range(1, len(HEADERS) + 1)]
+        if current_headers != HEADERS:
+            logger.warning(
+                "Planilha com cabecalho incompativel (%s). Recriando historico formatado.",
+                current_headers,
+            )
+            wb, ws = _create_workbook()
+    wb.save(excel_file)
+    return excel_file
 
 
 def marcar_devolucao(ws, row, used_date, used_time, used_day):

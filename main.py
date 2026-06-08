@@ -418,8 +418,8 @@ def _build_app(page: ft.Page) -> None:
             # #region agent log
             _debug_log(
                 "H4",
-                "main.py:export_excel:generated",
-                "excel generated, launching browser download",
+                "main.py:export_excel:ready",
+                "usage history workbook ready, launching browser download",
                 {
                     "excel_path": str(export_path),
                     "download_url": download_url,
@@ -439,7 +439,7 @@ def _build_app(page: ft.Page) -> None:
                 {"download_url": download_url, "runId": "post-fix-v2"},
             )
             # #endregion
-            feedback.value = "Download do Excel iniciado."
+            feedback.value = "Download do historico de usos iniciado."
             feedback.color = ft.Colors.GREEN_700
         except Exception as exc:
             # #region agent log
