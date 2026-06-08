@@ -1,5 +1,6 @@
 import csv
 import logging
+from fastapi import requests
 import openpyxl
 import sqlite3
 import traceback
@@ -375,7 +376,21 @@ def _build_app(page: ft.Page) -> None:
         elif feedback.value.startswith("Exibindo "):
             feedback.value = ""
         page.update()
-
+    def export_excel() -> None:
+        try:
+            response = requests.get(f"http://localhost:8080/download_excel")
+            if response.status_code == 200:
+                with open("chaves_exportadas.xlsx", "wb") as f:
+                    f.write(response.content)
+                feedback.value = "Excel exportado com sucesso."
+                feedback.color = ft.Colors.GREEN_700
+            else:
+                feedback.value = "Erro ao exportar excel."
+                feedback.color = ft.Colors.RED_700
+        except Exception as e:
+            feedback.value = f"Erro ao exportar excel: {e}"
+            feedback.color = ft.Colors.RED_700
+        page.update()
     def on_add_key(e: ft.ControlEvent) -> None:
         name = key_input.value.strip()
         if not name:
@@ -803,7 +818,7 @@ def _build_app(page: ft.Page) -> None:
             ft.FilledButton(
                 "Exportar  excel",
                 icon=ft.Icons.DOWNLOAD,
-                on_click=on_download_excel,
+                on_click= lambda e: export_excel(page),
             ),
             feedback,
             ft.Row(
