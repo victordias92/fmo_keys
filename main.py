@@ -23,6 +23,7 @@ from database.key_repository import (
     seed_fmo_keys,
     get_key_by_id
 )
+from services.excel_download import excel_download
 
 from database.connection import init_db
 
@@ -566,7 +567,8 @@ def _build_app(page: ft.Page) -> None:
             feedback.value = "Nao foi possivel abrir o modal de edicao."
             feedback.color = ft.Colors.RED_700
             page.update()
-
+    def on_download_excel(e: ft.ControlEvent) -> None:
+        excel_download()
     def on_delete_key(key_id: int, key_name: str) -> None:
         
         admin_input = ft.TextField(
@@ -795,6 +797,11 @@ def _build_app(page: ft.Page) -> None:
                 icon=ft.Icons.HOW_TO_REG,
                 on_click=lambda e, key_id=search_input.value, user=user_input.value: on_register_use(search_input.value, user_input.value),
             ),
+            ft.FilledButton(
+                "Exportar  excel",
+                icon=ft.Icons.DOWNLOAD,
+                on_click=on_export_csv,
+            ),
             feedback,
             ft.Row(
                 [prev_page_button, page_info_text, next_page_button],
@@ -859,14 +866,6 @@ def _build_app(page: ft.Page) -> None:
         page.update()
 
     page.on_resized = apply_responsive_layout
-    
-    def confirm_clear(e: ft.ControlEvent) -> None:
-            clear_key_use(key_id)
-            feedback.value = f"Uso removido de '{key_name}' (usuario: {last_user})."
-            feedback.color = ft.Colors.GREEN_700
-            close_modal(page)
-            refresh_table()
-    page.add(ft.SafeArea(expand=True, content=content))
     apply_responsive_layout()
     if seeded:
         feedback.value = f"{seeded} chave(s) do claviculario FMO carregada(s)."
