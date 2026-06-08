@@ -34,20 +34,20 @@ def excel_download() -> Path:
         )
 
     wb.save(excel_file)
-    download_file()
+    return excel_file
 
 app = Flask(__name__)
 
 @app.route('/download')
 def download_file():
     # Caminho para o arquivo no seu servidor
-    caminho_arquivo = "chaves_exportadas.xlsx"
+    caminho_arquivo = excel_download()
     if not os.path.exists(caminho_arquivo):
         return "Arquivo não encontrado"
     return send_file(
         caminho_arquivo, 
         as_attachment=True,         # Força o navegador a baixar em vez de abrir
-        download_name='relatorio.excel' # Nome que o usuário verá ao salvar
+        download_name='relatorio.xlsx' # Nome que o usuário verá ao salvar
     )
 
 if __name__ == '__main__':
