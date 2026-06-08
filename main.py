@@ -1,6 +1,5 @@
 import csv
 import logging
-import requests
 import openpyxl
 import sqlite3
 import traceback
@@ -24,9 +23,32 @@ from database.key_repository import (
     seed_fmo_keys,
     get_key_by_id
 )
-from services.excel_download import excel_download
+from services.excel_download import excel_download, EXCEL_FILENAME
 
 from database.connection import init_db
+
+DEBUG_LOG_PATH = Path(__file__).with_name("debug-d1c93b.log")
+
+
+def _debug_log(hypothesis_id: str, location: str, message: str, data: dict | None = None) -> None:
+    # #region agent log
+    import json
+    import time
+
+    payload = {
+        "sessionId": "d1c93b",
+        "hypothesisId": hypothesis_id,
+        "location": location,
+        "message": message,
+        "data": data or {},
+        "timestamp": int(time.time() * 1000),
+    }
+    try:
+        with DEBUG_LOG_PATH.open("a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    # #endregion
 
 appdata = os.getenv("APPDATA") or os.getenv("HOME") or "/tmp"
 data_dir = Path(appdata) / "KeyManager"
@@ -376,19 +398,52 @@ def _build_app(page: ft.Page) -> None:
         elif feedback.value.startswith("Exibindo "):
             feedback.value = ""
         page.update()
-    def export_excel() -> None:
+    def export_excel(e: ft.ControlEvent | None = None) -> None:
+        download_url = "/download_excel"
+        # #region agent log
+        _debug_log(
+            "H2",
+            "main.py:export_excel:entry",
+            "export_excel called",
+            {
+                "download_url": download_url,
+                "port_env": os.environ.get("PORT"),
+                "is_production": bool(os.environ.get("PORT")),
+                "runId": "post-fix",
+            },
+        )
+        # #endregion
         try:
-            response = requests.get(f"http://localhost:8080/download_excel")
-            if response.status_code == 200:
-                with open("chaves_exportadas.xlsx", "wb") as f:
-                    f.write(response.content)
-                feedback.value = "Excel exportado com sucesso."
-                feedback.color = ft.Colors.GREEN_700
-            else:
-                feedback.value = "Erro ao exportar excel."
-                feedback.color = ft.Colors.RED_700
-        except Exception as e:
-            feedback.value = f"Erro ao exportar excel: {e}"
+            export_path = excel_download()
+            # #region agent log
+            _debug_log(
+                "H4",
+                "main.py:export_excel:generated",
+                "excel generated, launching browser download",
+                {
+                    "excel_path": str(export_path),
+                    "download_url": download_url,
+                    "runId": "post-fix",
+                },
+            )
+            # #endregion
+            page.launch_url(download_url)
+            feedback.value = "Download do Excel iniciado."
+            feedback.color = ft.Colors.GREEN_700
+        except Exception as exc:
+            # #region agent log
+            _debug_log(
+                "H1",
+                "main.py:export_excel:exception",
+                "export_excel failed",
+                {
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                    "runId": "post-fix",
+                },
+            )
+            # #endregion
+            feedback.value = f"Erro ao exportar excel: {exc}"
             feedback.color = ft.Colors.RED_700
         page.update()
     def on_add_key(e: ft.ControlEvent) -> None:
@@ -888,6 +943,39 @@ def _build_app(page: ft.Page) -> None:
     refresh_table()
 
 
+def create_web_app():
+    import flet_web.fastapi as flet_fastapi
+    from fastapi.responses import FileResponse
+
+    web_app = flet_fastapi.FastAPI()
+
+    @web_app.get("/download_excel")
+    def download_excel_route():
+        excel_file = excel_download()
+        # #region agent log
+        _debug_log(
+            "H5",
+            "main.py:download_excel_route",
+            "serving excel file",
+            {
+                "excel_path": str(excel_file),
+                "exists": excel_file.exists(),
+                "runId": "post-fix",
+            },
+        )
+        # #endregion
+        return FileResponse(
+            path=str(excel_file),
+            filename=EXCEL_FILENAME,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{EXCEL_FILENAME}"'},
+        )
+
+    assets_path = str(Path(__file__).parent / "assets")
+    web_app.mount("/", flet_fastapi.app(main, assets_dir=assets_path))
+    return web_app
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     port = int(os.environ.get("PORT", 8080))
@@ -897,10 +985,20 @@ if __name__ == "__main__":
         os.environ["FLET_FORCE_WEB_SERVER"] = "true"
 
     logging.info("Iniciando Flet em 0.0.0.0:%s (producao=%s)", port, is_production)
-
-    ft.run(
-        main,
-        port=port,
-        host="0.0.0.0",
-        view=ft.AppView.WEB_BROWSER,
+    # #region agent log
+    _debug_log(
+        "H2",
+        "main.py:__main__",
+        "app startup",
+        {
+            "port": port,
+            "is_production": is_production,
+            "server": "uvicorn+fastapi",
+            "runId": "post-fix",
+        },
     )
+    # #endregion
+
+    import uvicorn
+
+    uvicorn.run(create_web_app(), host="0.0.0.0", port=port)

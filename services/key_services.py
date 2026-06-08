@@ -45,6 +45,7 @@ def register_use(key_id: int, user: str, used: bool):
         except Exception:
             logger.exception("Falha ao atualizar planilha Excel na devolucao")
         return
+    
 
     update_key_use(
         key_id,
