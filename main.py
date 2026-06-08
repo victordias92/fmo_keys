@@ -868,6 +868,7 @@ def _build_app(page: ft.Page) -> None:
         refresh_table()
         page.update()
 
+    page.add(ft.SafeArea(expand=True, content=content))
     page.on_resized = apply_responsive_layout
     apply_responsive_layout()
     if seeded:
