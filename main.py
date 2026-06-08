@@ -818,7 +818,7 @@ def _build_app(page: ft.Page) -> None:
             ft.FilledButton(
                 "Exportar  excel",
                 icon=ft.Icons.DOWNLOAD,
-                on_click= lambda e: export_excel(page),
+                on_click= lambda e: export_excel(),
             ),
             feedback,
             ft.Row(
