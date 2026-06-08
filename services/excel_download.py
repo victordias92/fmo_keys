@@ -46,7 +46,7 @@ def download_file():
     return send_file(
         caminho_arquivo, 
         as_attachment=True,         # Força o navegador a baixar em vez de abrir
-        download_name='relatorio.pdf' # Nome que o usuário verá ao salvar
+        download_name='relatorio.excel' # Nome que o usuário verá ao salvar
     )
 
 if __name__ == '__main__':
