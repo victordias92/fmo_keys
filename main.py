@@ -1,6 +1,6 @@
 import csv
 import logging
-from fastapi import requests
+import requests
 import openpyxl
 import sqlite3
 import traceback
