@@ -3,6 +3,7 @@ openpyxl
 uvicorn[standard]>=0.30.0
 flask
 gunicorn[standard]>=23.0.0
+requests
 watchfiles>=0.20.0
 httpx>=0.28.0
 pydantic>=2.10.0
