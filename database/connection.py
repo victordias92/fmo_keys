@@ -10,6 +10,8 @@ data_dir = Path(appdata) / "KeyManager"
 data_dir.mkdir(parents=True, exist_ok=True)
 
 db_path = data_dir / "keys.db"
+failures_images_dir = data_dir / "failures" / "images"
+failures_images_dir.mkdir(parents=True, exist_ok=True)
 
 
 def get_conn() -> sqlite3.Connection:
@@ -35,6 +37,22 @@ def init_db() -> None:
                 used_date TEXT,
                 used_time TEXT,
                 used_day TEXT
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS failures_registry (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                location TEXT NOT NULL,
+                description TEXT,
+                reported_by TEXT,
+                failure_date TEXT,
+                failure_time TEXT,
+                failure_day TEXT,
+                status TEXT DEFAULT 'aberta',
+                image_path TEXT,
+                notes TEXT
             )
             """
         )

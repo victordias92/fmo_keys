@@ -1,5 +1,6 @@
 flet[web]>=0.28.0
 openpyxl
+matplotlib>=3.8.0
 uvicorn[standard]>=0.30.0
 gunicorn[standard]>=23.0.0
 watchfiles>=0.20.0

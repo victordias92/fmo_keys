@@ -1,5 +1,6 @@
 import csv
 import logging
+import socket
 import openpyxl
 import sqlite3
 import traceback
@@ -24,6 +25,8 @@ from database.key_repository import (
     get_key_by_id
 )
 from services.excel_download import excel_download, EXCEL_FILENAME
+from views.failures_tab import build_failures_tab
+from views import ui_styles as ui
 
 from database.connection import init_db
 
@@ -75,10 +78,6 @@ def _is_mobile(page: ft.Page) -> bool:
     return _page_width(page) < MOBILE_BREAKPOINT
 
 
-def _field_label_style(mobile: bool) -> ft.TextStyle:
-    return ft.TextStyle(size=11 if mobile else 13)
-
-
 def show_modal(page: ft.Page, dialog: ft.AlertDialog) -> None:
     page.show_dialog(dialog)
 
@@ -100,6 +99,7 @@ def main(page: ft.Page) -> None:
 
 def _build_app(page: ft.Page) -> None:
     init_db()
+    page._failure_file_picker = ft.FilePicker()
     seeded = seed_fmo_keys()
     mobile = _is_mobile(page)
     page.title = "Claviculario FMO dev Victor F. Dias"
@@ -113,32 +113,27 @@ def _build_app(page: ft.Page) -> None:
     else:
         color_bg = ft.Colors.BLUE_50
 
-    title_icon = ft.Icon(ft.Icons.KEY, size=24 if mobile else 32, color=ft.Colors.BLUE_700)
+    title_icon = ft.Icon(ft.Icons.KEY, size=ui.text_size(mobile, "title"), color=ft.Colors.BLUE_700)
     title_text = ft.Text(
         "Claviculario FMO",
-        size=20 if mobile else 28,
+        size=ui.text_size(mobile, "title"),
         weight=ft.FontWeight.BOLD,
     )
     title = ft.Row(controls=[title_icon, title_text], spacing=8)
 
     def _configure_field(field: ft.TextField) -> ft.TextField:
-        field.dense = True
-        field.text_size = 13 if mobile else 15
-        field.label_style = _field_label_style(mobile)
-        field.expand = True
-        return field
+        return ui.configure_field(field, mobile)
 
     key_input = _configure_field(ft.TextField(
         label="Chave extra (opcional)",
         hint_text="Somente se nao estiver no claviculario",
         prefix_icon=ft.Icons.KEY_OUTLINED,
     ))
-    admin_user = ft.TextField(
-        label= 'user', hint_text="administrador",
-        prefix_icon=ft.Icons.PERSON_OUTLINED, 
+    admin_user = _configure_field(ft.TextField(
+        label='user', hint_text="administrador",
+        prefix_icon=ft.Icons.PERSON_OUTLINED,
         password=True,
-        )
-
+    ))
     user_input = _configure_field(ft.TextField(
         label="Ultimo a utilizar",
         hint_text="Nome da pessoa",
@@ -158,7 +153,7 @@ def _build_app(page: ft.Page) -> None:
         prefix_icon=ft.Icons.PERSON_SEARCH,
         on_change=lambda e: refresh_table(reset_page=True),
     ))
-    day_filter_dropdown = ft.Dropdown(
+    day_filter_dropdown = ui.configure_dropdown(ft.Dropdown(
         label="Filtrar por dia",
         hint_text="Selecione o dia da semana",
         options=[
@@ -172,11 +167,8 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("Domingo"),
         ],
         value="",
-        expand=True,
-        text_size=13 if mobile else 15,
-        label_style=_field_label_style(mobile),
-    )
-    sort_by_dropdown = ft.Dropdown(
+    ), mobile)
+    sort_by_dropdown = ui.configure_dropdown(ft.Dropdown(
         label="Ordenar por",
         options=[
             ft.dropdown.Option("key_name", "Nome da chave"),
@@ -184,22 +176,16 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("used_datetime", "Data/Hora de uso"),
         ],
         value="key_name",
-        expand=True,
-        text_size=13 if mobile else 15,
-        label_style=_field_label_style(mobile),
-    )
-    sort_order_dropdown = ft.Dropdown(
+    ), mobile)
+    sort_order_dropdown = ui.configure_dropdown(ft.Dropdown(
         label="Ordem",
         options=[
             ft.dropdown.Option("asc", "Crescente"),
             ft.dropdown.Option("desc", "Decrescente"),
         ],
         value="asc",
-        expand=True,
-        text_size=13 if mobile else 15,
-        label_style=_field_label_style(mobile),
-    )
-    page_size_dropdown = ft.Dropdown(
+    ), mobile)
+    page_size_dropdown = ui.configure_dropdown(ft.Dropdown(
         label="Itens por pagina",
         options=[
             ft.dropdown.Option("10"),
@@ -207,14 +193,11 @@ def _build_app(page: ft.Page) -> None:
             ft.dropdown.Option("50"),
         ],
         value="10",
-        expand=True,
-        text_size=13 if mobile else 15,
-        label_style=_field_label_style(mobile),
-    )
+    ), mobile)
     current_page = 1
-    page_info_text = ft.Text("Pagina 1/1", size=12 if mobile else 14, weight=ft.FontWeight.W_600)
+    page_info_text = ft.Text("Pagina 1/1", size=ui.text_size(mobile, "page_info"), weight=ft.FontWeight.W_600)
 
-    stat_size = 18 if mobile else 26
+    stat_size = ui.text_size(mobile, "stat")
     total_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_700)
     used_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.GREEN_700)
     available_keys_text = ft.Text("0", size=stat_size, weight=ft.FontWeight.BOLD, color=ft.Colors.ORANGE_700)
@@ -222,8 +205,8 @@ def _build_app(page: ft.Page) -> None:
     recent_activity_column = ft.Column(spacing=6)
 
     def _table_columns(compact: bool) -> list[ft.DataColumn]:
-        label_size = 11 if compact else 13
-        icon_size = 14 if compact else 18
+        label_size = ui.text_size(compact, "table_header")
+        icon_size = 18 if compact else 22
 
         def col(icon, label: str) -> ft.DataColumn:
             return ft.DataColumn(
@@ -247,13 +230,13 @@ def _build_app(page: ft.Page) -> None:
         rows=[],
         heading_row_color=color_bg,
         column_spacing=8 if mobile else 15,
-        data_row_min_height=40 if mobile else 48,
-        heading_row_height=36 if mobile else 48,
+        data_row_min_height=48 if mobile else 56,
+        heading_row_height=44 if mobile else 52,
         width=900 if mobile else 1150,
     )
     table_scroll = ft.Row([table], scroll=ft.ScrollMode.ALWAYS, expand=True)
 
-    feedback = ft.Text("", color=ft.Colors.GREEN_700, size=12 if mobile else 14)
+    feedback = ft.Text("", color=ft.Colors.GREEN_700, size=ui.text_size(mobile, "feedback"))
 
     def get_sort_value(row: sqlite3.Row, sort_by: str) -> str:
         if sort_by == "last_user":
@@ -307,7 +290,7 @@ def _build_app(page: ft.Page) -> None:
         end_index = start_index + page_size
         paginated_rows = filtered_rows[start_index:end_index]
 
-        cell_size = 11 if layout_mobile else 13
+        cell_size = ui.text_size(layout_mobile, "table_cell")
 
         def _action_button(text: str, icon, on_click):
             if layout_mobile:
@@ -363,7 +346,7 @@ def _build_app(page: ft.Page) -> None:
         used_keys_text.value = str(used_keys)
         available_keys_text.value = str(available_keys)
 
-        activity_size = 10 if layout_mobile else 12
+        activity_size = ui.text_size(layout_mobile, "small")
         recent_activity_column.controls.clear()
         recent_activity_column.controls.append(
             ft.Row(
@@ -803,59 +786,52 @@ def _build_app(page: ft.Page) -> None:
     row_last_user = ''
 
     def _stat_card(icon, label: str, value_text: ft.Text, bgcolor) -> ft.Container:
-        label_size = 11 if layout_mobile else 13
-        return ft.Container(
-            content=ft.Row(
-                [
-                    ft.Icon(icon, size=16 if layout_mobile else 20),
-                    ft.Text(label, size=label_size),
-                    value_text,
-                ],
-                spacing=4,
-                alignment=ft.MainAxisAlignment.START,
-            ),
-            padding=10 if layout_mobile else 12,
-            border_radius=10,
-            bgcolor=bgcolor,
-            expand=layout_mobile,
-        )
+        return ui.stat_card(icon, label, value_text, bgcolor, mobile=layout_mobile)
 
-    stat_total = _stat_card(ft.Icons.KEY, "Chaves", total_keys_text, ft.Colors.BLUE_50)
-    stat_used = _stat_card(ft.Icons.CHECK_CIRCLE, "Usadas", used_keys_text, ft.Colors.GREEN_50)
-    stat_available = _stat_card(ft.Icons.LOCK_OPEN, "Sem uso", available_keys_text, ft.Colors.ORANGE_50)
+    stat_total = _stat_card(ft.Icons.KEY, "Chaves", total_keys_text, ft.Colors.WHITE)
+    stat_used = _stat_card(ft.Icons.CHECK_CIRCLE, "Usadas", used_keys_text, ft.Colors.WHITE)
+    stat_available = _stat_card(ft.Icons.LOCK_OPEN, "Sem uso", available_keys_text, ft.Colors.WHITE)
     stat_containers = [stat_total, stat_used, stat_available]
 
-    dev_banner = ft.Container(
-        content=ft.Row(
+    dev_banner = ui.elevated_container(
+        ft.Row(
             [
-                ft.Icon(ft.Icons.PERSON, color=ft.Colors.BLUE, size=16 if layout_mobile else 20),
-                ft.Text("Desenvolvido por AAS Dias", size=11 if layout_mobile else 13),
+                ft.Icon(ft.Icons.PERSON, color=ft.Colors.BLUE, size=22 if layout_mobile else 26),
+                ft.Text("Desenvolvido por AAS Dias", size=ui.text_size(layout_mobile, "caption")),
             ],
             spacing=8,
             alignment=ft.MainAxisAlignment.START,
         ),
-        padding=8 if layout_mobile else 10,
-        border_radius=8,
-        bgcolor=ft.Colors.BLUE_50,
+        mobile=layout_mobile,
+        bgcolor=ft.Colors.WHITE,
+        padding=10 if layout_mobile else 12,
     )
 
-    inputs_row = ft.ResponsiveRow(
-        [
-            ft.Container(user_input, col={"xs": 12, "md": 4}),
-            ft.Container(search_input, col={"xs": 12, "md": 4}),
-            ft.Container(user_filter_input, col={"xs": 12, "md": 4}),
-        ],
-        run_spacing=10,
+    inputs_row = ui.elevated_container(
+        ft.ResponsiveRow(
+            [
+                ft.Container(user_input, col={"xs": 12, "md": 4}),
+                ft.Container(search_input, col={"xs": 12, "md": 4}),
+                ft.Container(user_filter_input, col={"xs": 12, "md": 4}),
+            ],
+            run_spacing=10,
+        ),
+        mobile=layout_mobile,
+        bgcolor=ft.Colors.WHITE,
     )
-    footer_row = ft.ResponsiveRow(
-        [
-            ft.Container(key_input, col={"xs": 12, "md": 8}),
-            ft.Container(add_key_button, col={"xs": 12, "md": 4}),
-        ],
-        run_spacing=10,
+    footer_row = ui.elevated_container(
+        ft.ResponsiveRow(
+            [
+                ft.Container(key_input, col={"xs": 12, "md": 8}),
+                ft.Container(add_key_button, col={"xs": 12, "md": 4}),
+            ],
+            run_spacing=10,
+        ),
+        mobile=layout_mobile,
+        bgcolor=ft.Colors.WHITE,
     )
 
-    content = ft.Column(
+    keys_content = ft.Column(
         controls=[
             title,
             dev_banner,
@@ -865,11 +841,10 @@ def _build_app(page: ft.Page) -> None:
                 spacing=8,
                 run_spacing=8,
             ),
-            ft.Container(
-                content=recent_activity_column,
-                padding=10 if layout_mobile else 12,
-                border_radius=10,
-                bgcolor=ft.Colors.BLUE_GREY_50,
+            ui.elevated_container(
+                recent_activity_column,
+                mobile=layout_mobile,
+                bgcolor=ft.Colors.WHITE,
             ),
             inputs_row,
             ft.FilledButton(
@@ -889,10 +864,10 @@ def _build_app(page: ft.Page) -> None:
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 wrap=True,
             ),
-            ft.Container(
-                content=table_scroll,
-                padding=8 if layout_mobile else 10,
-                border_radius=10,
+            ui.elevated_container(
+                table_scroll,
+                mobile=layout_mobile,
+                padding=10 if layout_mobile else 14,
                 bgcolor=ft.Colors.WHITE,
             ),
             ft.Divider(height=1, color=ft.Colors.BLUE_GREY_100),
@@ -902,24 +877,56 @@ def _build_app(page: ft.Page) -> None:
         expand=True,
     )
 
+    failures_content, failures_handlers = build_failures_tab(
+        page,
+        mobile,
+        show_modal,
+        close_modal,
+    )
+
+    tabs = ft.Tabs(
+        selected_index=0,
+        length=2,
+        animation_duration=300,
+        expand=True,
+        content=ft.Column(
+            expand=True,
+            controls=[
+                ft.TabBar(
+                    tabs=[
+                        ft.Tab(label="Claviculario", icon=ft.Icons.KEY),
+                        ft.Tab(label="Controle de falhas", icon=ft.Icons.BUILD_CIRCLE),
+                    ],
+                ),
+                ft.TabBarView(
+                    expand=True,
+                    controls=[
+                        ft.Container(content=keys_content, padding=0, expand=True),
+                        ft.Container(content=failures_content, padding=0, expand=True),
+                    ],
+                ),
+            ],
+        ),
+    )
+
     def apply_responsive_layout(_=None) -> None:
         nonlocal layout_mobile
         layout_mobile = _is_mobile(page)
         page.padding = 8 if layout_mobile else 15
 
-        title_icon.size = 24 if layout_mobile else 32
-        title_text.size = 20 if layout_mobile else 28
-        dev_banner.padding = 8 if layout_mobile else 10
-
-        stat_size = 18 if layout_mobile else 26
+        title_icon.size = ui.text_size(layout_mobile, "title")
+        title_text.size = ui.text_size(layout_mobile, "title")
+        dev_banner.padding = 10 if layout_mobile else 12
+        
+        stat_size = ui.text_size(layout_mobile, "stat")
         for stat_value in (total_keys_text, used_keys_text, available_keys_text):
             stat_value.size = stat_size
         for stat_card in stat_containers:
             stat_card.expand = layout_mobile
-            stat_card.padding = 10 if layout_mobile else 12
+            stat_card.padding = 12 if layout_mobile else 16
 
-        field_size = 13 if layout_mobile else 15
-        label_style = _field_label_style(layout_mobile)
+        field_size = ui.text_size(layout_mobile, "body")
+        label_style = ui.field_label_style(layout_mobile)
         for field in (key_input, user_input, search_input, user_filter_input):
             field.text_size = field_size
             field.label_style = label_style
@@ -934,19 +941,34 @@ def _build_app(page: ft.Page) -> None:
 
         table.columns = _table_columns(layout_mobile)
         table.column_spacing = 8 if layout_mobile else 15
-        table.data_row_min_height = 40 if layout_mobile else 48
-        table.heading_row_height = 36 if layout_mobile else 48
+        table.data_row_min_height = 48 if layout_mobile else 56
+        table.heading_row_height = 44 if layout_mobile else 52
         table.width = 900 if layout_mobile else 1150
 
-        page_info_text.size = 12 if layout_mobile else 14
-        feedback.size = 12 if layout_mobile else 14
-        content.spacing = 10 if layout_mobile else 14
+        page_info_text.size = ui.text_size(layout_mobile, "page_info")
+        feedback.size = ui.text_size(layout_mobile, "feedback")
+        keys_content.spacing = 10 if layout_mobile else 14
 
         refresh_table()
+        failures_handlers["apply_responsive_layout"](layout_mobile)
         page.update()
 
-    page.add(ft.SafeArea(expand=True, content=content))
+    page.add(ft.SafeArea(expand=True, content=tabs))
     page.on_resized = apply_responsive_layout
+
+    def on_page_connect(_=None) -> None:
+        page._failure_file_picker = ft.FilePicker()
+        # #region agent log
+        _debug_log(
+            "H11",
+            "main.py:on_page_connect",
+            "file picker recreated on reconnect",
+            {"picker_id": page._failure_file_picker._i},
+        )
+        # #endregion
+        page.update()
+
+    page.on_connect = on_page_connect
     apply_responsive_layout()
     if seeded:
         feedback.value = f"{seeded} chave(s) do claviculario FMO carregada(s)."
@@ -958,8 +980,14 @@ def create_web_app():
     import flet_web.fastapi as flet_fastapi
     from fastapi.responses import FileResponse
     from starlette.requests import Request
+    from starlette.responses import Response
+
+    from database.failure_repository import get_failure_by_id
+    from services.failure_excel_download import failures_excel_download, FAILURES_EXCEL_FILENAME
 
     web_app = flet_fastapi.FastAPI()
+    upload_dir = str(data_dir / "uploads")
+    Path(upload_dir).mkdir(parents=True, exist_ok=True)
 
     @web_app.get("/download_excel")
     def download_excel_route(request: Request):
@@ -984,14 +1012,105 @@ def create_web_app():
             headers={"Content-Disposition": f'attachment; filename="{EXCEL_FILENAME}"'},
         )
 
+    @web_app.get("/download_failures_excel")
+    def download_failures_excel_route(request: Request):
+        excel_file = failures_excel_download()
+        return FileResponse(
+            path=str(excel_file),
+            filename=FAILURES_EXCEL_FILENAME,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{FAILURES_EXCEL_FILENAME}"'},
+        )
+
+    @web_app.get("/failure_image/{failure_id}")
+    def failure_image_route(failure_id: int):
+        row = get_failure_by_id(failure_id)
+        if not row or not row["image_path"]:
+            # #region agent log
+            _debug_log(
+                "H3",
+                "main.py:failure_image_route",
+                "image not found in db",
+                {"failure_id": failure_id, "status": 404},
+            )
+            # #endregion
+            return Response(status_code=404)
+        image_path = Path(row["image_path"])
+        if not image_path.exists():
+            # #region agent log
+            _debug_log(
+                "H3",
+                "main.py:failure_image_route",
+                "image file missing on disk",
+                {"failure_id": failure_id, "image_path": str(image_path), "status": 404},
+            )
+            # #endregion
+            return Response(status_code=404)
+        # #region agent log
+        _debug_log(
+            "H3",
+            "main.py:failure_image_route",
+            "serving image",
+            {
+                "failure_id": failure_id,
+                "image_path": str(image_path),
+                "size": image_path.stat().st_size,
+                "status": 200,
+            },
+        )
+        # #endregion
+        media = "image/jpeg"
+        if image_path.suffix.lower() == ".png":
+            media = "image/png"
+        elif image_path.suffix.lower() == ".webp":
+            media = "image/webp"
+        elif image_path.suffix.lower() == ".gif":
+            media = "image/gif"
+        return FileResponse(path=str(image_path), media_type=media)
+
     assets_path = str(Path(__file__).parent / "assets")
-    web_app.mount("/", flet_fastapi.app(main, assets_dir=assets_path))
+    web_app.mount("/", flet_fastapi.app(main, assets_dir=assets_path, upload_dir=upload_dir))
     return web_app
+
+
+def _resolve_listen_port(default: int = 8080) -> int:
+    """Em dev, usa PORT do ambiente ou 8080; se ocupada, escolhe porta livre."""
+    if os.environ.get("PORT"):
+        return int(os.environ["PORT"])
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        try:
+            sock.bind(("0.0.0.0", default))
+            return default
+        except OSError as exc:
+            from flet.utils import get_free_tcp_port
+
+            free_port = get_free_tcp_port()
+            # #region agent log
+            _debug_log(
+                "H1",
+                "main.py:_resolve_listen_port",
+                "default port busy, using free port",
+                {
+                    "default_port": default,
+                    "free_port": free_port,
+                    "error": str(exc),
+                    "runId": "port-fix",
+                },
+            )
+            # #endregion
+            logging.warning(
+                "Porta %s em uso (%s). Iniciando na porta %s.",
+                default,
+                exc,
+                free_port,
+            )
+            return free_port
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    port = int(os.environ.get("PORT", 8080))
+    port = _resolve_listen_port(8080)
     is_production = bool(os.environ.get("PORT"))
 
     if is_production:
