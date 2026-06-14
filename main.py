@@ -107,7 +107,14 @@ def _build_app(page: ft.Page) -> None:
     page.padding = 8 if mobile else 15
     page.window_width = 980
     page.window_height = 680
-    page.scroll = ft.ScrollMode.AUTO
+    # #region agent log
+    _debug_log(
+        "H-M1",
+        "main.py:_build_app",
+        "page scroll disabled for tabs layout",
+        {"page_scroll": None, "initial_width": _page_width(page), "mobile": mobile},
+    )
+    # #endregion
     if page.theme_mode == ft.ThemeMode.DARK:
         color_bg = ft.Colors.GREY
     else:
@@ -875,6 +882,7 @@ def _build_app(page: ft.Page) -> None:
         ],
         spacing=10 if layout_mobile else 14,
         expand=True,
+        scroll=ft.ScrollMode.AUTO,
     )
 
     failures_content, failures_handlers = build_failures_tab(
@@ -913,6 +921,20 @@ def _build_app(page: ft.Page) -> None:
         nonlocal layout_mobile
         layout_mobile = _is_mobile(page)
         page.padding = 8 if layout_mobile else 15
+        # #region agent log
+        _debug_log(
+            "H-M1",
+            "main.py:apply_responsive_layout",
+            "layout metrics",
+            {
+                "page_width": _page_width(page),
+                "page_height": page.height,
+                "layout_mobile": layout_mobile,
+                "page_scroll": getattr(page, "scroll", None),
+                "runId": "mobile-fix",
+            },
+        )
+        # #endregion
 
         title_icon.size = ui.text_size(layout_mobile, "title")
         title_text.size = ui.text_size(layout_mobile, "title")

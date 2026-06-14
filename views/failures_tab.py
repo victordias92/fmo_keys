@@ -624,13 +624,19 @@ def build_failures_tab(
         scroll=ft.ScrollMode.AUTO,
     )
 
-    content = ft.ResponsiveRow(
+    content = ft.Column(
         [
-            ft.Container(left_panel, col={"xs": 12, "lg": 8}, expand=True),
-            ft.Container(chart_panel, col={"xs": 12, "lg": 4}),
+            ft.ResponsiveRow(
+                [
+                    ft.Container(left_panel, col={"xs": 12, "lg": 8}, expand=True),
+                    ft.Container(chart_panel, col={"xs": 12, "lg": 4}),
+                ],
+                expand=True,
+                run_spacing=14,
+            ),
         ],
         expand=True,
-        run_spacing=14,
+        scroll=ft.ScrollMode.AUTO,
     )
 
     def _decrement_page() -> None:
